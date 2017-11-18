@@ -1,0 +1,35 @@
+#undertow config optimize
+server:
+  port: 8082
+grpc:
+  client:
+    shcmcc-provider:
+      server-host: localhost
+      serverPort: 7588
+      enable-keep-alive: true
+      keep-alive-delay: 5 # seconds
+cors:
+  mappings: /**
+  allowedOrigins:
+hazelcast:
+  cluster: true
+  servers:
+    - localhost:5701
+
+weChat:
+  grantType: "client_credential"
+#  appId: "wx62b99576ea9266c1"
+#  secret: "25eb8b9f3e0101ba901b9eb58e9ad897"
+#峥峥鞋业
+  appId: "wx9a85535bdb4bf129"
+  secret: "38bbe18fa309d96a88111093a22eaecc"
+  tokenUrl: "https://api.weixin.qq.com/cgi-bin/token"
+  userUrl: "https://api.weixin.qq.com/cgi-bin/user/get"
+  baseUrl: "https://api.weixin.qq.com/cgi-bin"
+
+spring:
+  jackson:
+    generator:
+      WRITE_NUMBERS_AS_STRINGS: true
+    serialization-inclusion:
+     non_empty: true

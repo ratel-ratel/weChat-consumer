@@ -1,0 +1,70 @@
+spring:
+  jackson:
+    generator:
+      WRITE_NUMBERS_AS_STRINGS: true
+logging:
+  level:
+    cn.vpclub: INFO
+  pattern:
+    console: "%date{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36})  - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file: logs/application.log
+
+#undertow config optimize
+server:
+  context-path: "/"
+  undertow:
+    io-threads: 2
+    worker-threads: 200
+
+grpc:
+  client:
+    shcmcc-provider:
+      enable-keep-alive: true
+      keep-alive-delay: 5 # seconds
+cors:
+  mappings: /**
+  allowedOrigins:
+
+#api doc
+swagger:
+  enabled: true
+  title: "-API-Documents-chenwei"
+  version: 1.0.0
+  web-base-package: cn.vpclub.shm.shcmcc.consumer.web
+  author: chenwei
+  email: chen.wei@vpclub.cn
+  redirect: true
+
+SendSms:
+  appId: "2017072119360137977"
+  ability: "messageSendService"
+  appSecrect: "F8B1B1F64A897DD3165B5CA0E549A9EE4276C6CB0F43A8EC2064B4A8E8DB2175"
+  smsUrl: "http://211.136.110.98:8082/api/V1/messageSendService"
+  content: "验证码：{code}，当前您正在进行绑定手机号操作。感谢您关注上海移动和智联公众号，祝体验愉快。"
+
+weChat:
+  grantType: "client_credential"
+#  appId: "wx62b99576ea9266c1"
+#  secret: "25eb8b9f3e0101ba901b9eb58e9ad897"
+#微品人事测试号
+  appId: "wx9a85535bdb4bf129"
+  secret: "38bbe18fa309d96a88111093a22eaecc"
+  tokenUrl: "https://api.weixin.qq.com/cgi-bin/token"
+  userUrl: "https://api.weixin.qq.com/cgi-bin/user/get"
+  baseUrl: "https://api.weixin.qq.com/cgi-bin"
+  token: "38bbe18fa309d96a88111093a22eaecc"
+
+
+articles:
+  newsUrlOne: "http://stagegw.vpclub.cn/shm/web/app/#/login?openid="  #去绑定手机号的页面
+  newsPicUrlOne: "http://gscmimg.oss-cn-shenzhen.aliyuncs.com/upload/0/201711/13/201711132025074248.png" #
+  newsUrlTwo: "http://stagegw.vpclub.cn/shm/web/app/#/list?openid="  #去资讯地址
+  newsPicUrlTwo: "http://gscmimg.oss-cn-shenzhen.aliyuncs.com/upload/0/201711/12/201711122041469801.png" #
+
+  newsUrlIOT: "http://iot.sh.chinamobile.com/iotwechat/index.html?menuid=2806&openid="  #物联网链接地址
+  newsPicUrlIOT: "http://gscmimg.oss-cn-shenzhen.aliyuncs.com/upload/0/201711/17/201711171652299439.png" #
+  newsUrlStatecos: "http://shyd.vpclub.cn/Govbusiness.aspx?openid="  #政企业务
+  newsPicUrlStatecos: "http://gscmimg.oss-cn-shenzhen.aliyuncs.com/upload/0/201711/17/201711171720431836.png" #
+  #关注订阅号后的欢迎语
+  textContent: "Hi，亲爱的小伙伴，@上海移动和智联终于等到你了。这里有物联网的最新业务和行业各类最新资讯，企业主还可以在这里实时查询信息哦！                           绑定之后获取更多服务哦~  <a href=\"http://stagegw.vpclub.cn/shm/web/app/#/login?openid={0}\">点击绑定</a>"

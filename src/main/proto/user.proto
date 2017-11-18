@@ -1,0 +1,107 @@
+syntax = "proto3";
+import "type.proto";
+
+option java_package = "cn.vpclub.shm.shcmcc.consumer.api";
+option java_outer_classname = "UserProto";
+
+message UserDTO {
+    Long id = 1;
+    //绑定手机号
+    string mobile = 2;
+    //微信openid
+    string openId = 3;
+    //昵称
+    string nickName = 4;
+    //用户的性别，值为1时是男性，值为2时是女性，值为0时是未知
+    Integer sex = 5;
+    //用户的语言，简体中文为zh_CN
+    string language = 6;
+    //用户所在国家
+    string country = 7;
+    //用户所在省份
+    string province = 8;
+    //用户所在地区
+    string city = 9;
+    //用户是否订阅该公众号标识，值为0时，代表此用户没有关注该公众号，拉取不到其余信息
+    string subscribe = 10;
+    //用户头像
+    string headImgUrl = 11;
+    //用户关注时间，为时间戳。如果用户曾多次关注，则取最后关注时间
+    Long subscribeTime = 12;
+    //只有在用户将公众号绑定到微信开放平台帐号后，才会出现该字段
+    string unionId = 13;
+    //公众号运营者对粉丝的备注
+    string remark = 14;
+    //用户所在的分组ID（兼容旧的用户分组接口）
+    string groupId = 15;
+    //用户被打上的标签ID列表
+    string tagidList = 16;
+    //用户角色id
+    Long roleId = 17;
+    //角色名称
+    string roleName = 18;
+    //创建时间
+    Long createdTime = 19;
+    //创建人
+    Long createdBy = 20;
+    //更新时间
+    Long updatedTime = 21;
+    //更新人
+    Long updatedBy = 22;
+    //删除标识  1:在线 2:删除
+    Integer deleted = 23;
+    //是否关注 1:已关注；2:未关注
+    Integer follow = 24;
+    //是否黑名单 1:在；2:不在
+    Integer blackList = 25;
+
+}
+message UserRequest {
+    Integer pageNumber = 5;
+    Integer pageSize = 6;
+}
+message UserResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    UserDTO dataInfo = 3;
+}
+message UserListResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated UserDTO pageData = 3;
+    Integer pageNumber = 4;
+    Integer pageSize = 5;
+    Integer totalRecord = 6;
+}
+message UserPageResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated UserDTO records = 3;
+    Integer current = 4;
+    Integer size = 5;
+    Integer total = 6;
+    Integer pages = 7;
+    Integer offset = 8;
+    Integer limit = 9;
+    string orderByField = 10;
+    bool searchCount = 11;
+    bool optimizeCount = 12;
+    bool isAsc = 13;
+}
+service UserService {
+    rpc add (UserDTO) returns (UserResponse) {
+    }
+    rpc query (UserDTO) returns (UserResponse) {
+    }
+    rpc update (UserDTO) returns (UserResponse) {
+    }
+    rpc delete (UserDTO) returns (UserResponse) {
+    }
+    rpc list (UserRequest) returns (UserListResponse) {
+    }
+    rpc page (UserRequest) returns (UserPageResponse) {
+    }
+}
+
+
+

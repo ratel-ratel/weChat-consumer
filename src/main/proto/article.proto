@@ -1,0 +1,93 @@
+syntax = "proto3";
+import "type.proto";
+
+option java_package = "cn.vpclub.shm.shcmcc.consumer.api";
+option java_outer_classname = "ArticleProto";
+
+message ArticleDTO {
+    Long id = 1;
+    //文章标题
+    string title = 2;
+    //文章摘要
+    string summary = 3;
+    //作者
+    string author = 4;
+    //原文地址
+    string oldAddress = 5;
+    //文章内容
+    string content = 6;
+    //文章类型(1:所有:2:内部员工)
+    Integer type = 7;
+    //文章状态(1:草稿;2:发布)
+    Integer status = 8;
+    //企业封面
+    string vpImg = 9;
+    //微信封面
+    string weChatImg = 10;
+    //创建时间
+    Long createdTime = 11;
+    //创建人
+    Long createdBy = 12;
+    //更新时间
+    Long updatedTime = 13;
+    //更新人
+    Long updatedBy = 14;
+    //删除标识  1:在线 2:删除
+    Integer deleted = 15;
+    //前端回显
+    string echo = 16;
+
+}
+message ArticleRequest {
+    string title = 1;
+    Integer type = 2;
+    Integer status = 3;
+    Integer deleted = 4;
+    Integer pageNumber = 5;
+    Integer pageSize = 6;
+}
+message ArticleResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    ArticleDTO dataInfo = 3;
+}
+message ArticleListResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated ArticleDTO pageData = 3;
+    Integer pageNumber = 4;
+    Integer pageSize = 5;
+    Integer totalRecord = 6;
+}
+message ArticlePageResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated ArticleDTO records = 3;
+    Integer current = 4;
+    Integer size = 5;
+    Integer total = 6;
+    Integer pages = 7;
+    Integer offset = 8;
+    Integer limit = 9;
+    string orderByField = 10;
+    bool searchCount = 11;
+    bool optimizeCount = 12;
+    bool isAsc = 13;
+}
+service ArticleService {
+    rpc add (ArticleDTO) returns (ArticleResponse) {
+    }
+    rpc query (ArticleDTO) returns (ArticleResponse) {
+    }
+    rpc update (ArticleDTO) returns (ArticleResponse) {
+    }
+    rpc delete (ArticleDTO) returns (ArticleResponse) {
+    }
+    rpc list (ArticleRequest) returns (ArticleListResponse) {
+    }
+    rpc page (ArticleRequest) returns (ArticlePageResponse) {
+    }
+}
+
+
+

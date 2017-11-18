@@ -1,0 +1,7 @@
+hazelcast:
+  enabled: true
+  cluster: true
+  servers:
+    - hazelcast.hazelcast-dev.svc.cluster.local:5701
+
+

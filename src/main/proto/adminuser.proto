@@ -1,0 +1,78 @@
+syntax = "proto3";
+import "type.proto";
+
+option java_package = "cn.vpclub.shm.shcmcc.consumer.api";
+option java_outer_classname = "AdminUserProto";
+
+message AdminUserDTO {
+    //主键ID
+    Long id = 1;
+    //用户名称
+    string name = 2;
+    //登录名
+    string loginName = 3;
+    //密码
+    string password = 4;
+    //状态
+    Integer status = 5;
+    //创建时间
+    Long createdTime = 6;
+    //创建人
+    Long createdBy = 7;
+    //更新时间
+    Long updatedTime = 8;
+    //更新人
+    Long updatedBy = 9;
+    //删除标识  1:在线 2:删除
+    Integer deleted = 10;
+
+}
+message AdminUserRequest {
+    Integer pageNumber = 5;
+    Integer pageSize = 6;
+}
+message AdminUserResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    AdminUserDTO dataInfo = 3;
+}
+message AdminUserListResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated AdminUserDTO pageData = 3;
+    Integer pageNumber = 4;
+    Integer pageSize = 5;
+    Integer totalRecord = 6;
+}
+message AdminUserPageResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated AdminUserDTO records = 3;
+    Integer current = 4;
+    Integer size = 5;
+    Integer total = 6;
+    Integer pages = 7;
+    Integer offset = 8;
+    Integer limit = 9;
+    string orderByField = 10;
+    bool searchCount = 11;
+    bool optimizeCount = 12;
+    bool isAsc = 13;
+}
+service AdminUserService {
+    rpc add (AdminUserDTO) returns (AdminUserResponse) {
+    }
+    rpc query (AdminUserDTO) returns (AdminUserResponse) {
+    }
+    rpc update (AdminUserDTO) returns (AdminUserResponse) {
+    }
+    rpc delete (AdminUserDTO) returns (AdminUserResponse) {
+    }
+    rpc list (AdminUserRequest) returns (AdminUserListResponse) {
+    }
+    rpc page (AdminUserRequest) returns (AdminUserPageResponse) {
+    }
+}
+
+
+
