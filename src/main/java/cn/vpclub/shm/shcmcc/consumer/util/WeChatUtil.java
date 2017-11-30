@@ -1,19 +1,33 @@
 package cn.vpclub.shm.shcmcc.consumer.util;
 
 import cn.vpclub.moses.core.enums.ReturnCodeEnum;
+import cn.vpclub.moses.core.model.response.BaseResponse;
+import cn.vpclub.moses.core.model.response.PageResponse;
 import cn.vpclub.moses.utils.common.JsonUtil;
 import cn.vpclub.moses.utils.common.StringUtil;
 import cn.vpclub.moses.utils.common.XmlUtil;
 import cn.vpclub.moses.utils.hazelcast.HCacheMapUtil;
 import cn.vpclub.moses.utils.web.HttpRequestUtil;
 
+import cn.vpclub.shm.shcmcc.consumer.entity.Employee;
+import cn.vpclub.shm.shcmcc.consumer.entity.User;
 import cn.vpclub.shm.shcmcc.consumer.entity.WeChat;
-import cn.vpclub.shm.shcmcc.consumer.enums.ArticlesEnum;
-import cn.vpclub.shm.shcmcc.consumer.enums.WeChatEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.ArticlesEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.DataTypeEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.WeChatEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.request.EmployeePageParam;
 import cn.vpclub.shm.shcmcc.consumer.model.request.weChat.*;
 import cn.vpclub.shm.shcmcc.consumer.model.response.*;
+import cn.vpclub.shm.shcmcc.consumer.rpc.EmployeeRpcService;
+import cn.vpclub.shm.shcmcc.consumer.rpc.UserRpcService;
+import cn.vpclub.shm.shcmcc.consumer.service.UserService;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.util.CollectionUtil;
 import lombok.extern.slf4j.Slf4j;
+import me.chanjar.weixin.common.bean.WxJsapiSignature;
+import me.chanjar.weixin.common.exception.WxErrorException;
+import me.chanjar.weixin.common.util.RandomUtils;
+import me.chanjar.weixin.common.util.crypto.SHA1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -29,7 +43,6 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -41,6 +54,8 @@ import java.util.Map;
 public class WeChatUtil {
     private HazelcastInstance hazelcast;
     private WeChat weChat;
+    private UserRpcService userRpcService;
+    private EmployeeRpcService employeeRpcService;
     @Value("${weChat.tokenUrl}")
     private String tokenUrl;
     @Value("${weChat.userUrl}")
@@ -72,9 +87,11 @@ public class WeChatUtil {
     private String textContent;
 
     @Autowired
-    public WeChatUtil(HazelcastInstance hazelcast, WeChat weChat) {
+    public WeChatUtil(HazelcastInstance hazelcast, WeChat weChat, UserRpcService userRpcService, EmployeeRpcService employeeRpcService) {
         this.hazelcast = hazelcast;
         this.weChat = weChat;
+        this.userRpcService = userRpcService;
+        this.employeeRpcService = employeeRpcService;
     }
 
     private String byteToHexStr(byte myByte) {
@@ -86,12 +103,30 @@ public class WeChatUtil {
         return str;
     }
 
+    public WxJsapiSignature createJsapiSignature(String url) throws WxErrorException {
+        long timestamp = System.currentTimeMillis() / 1000;
+        String noncestr = RandomUtils.getRandomStr();
+//        String jsapiTicket = getJsapiTicket();
+        JsApiTicketResponse jsApiTicket = getJsApiTicket();
+        String jsapiTicket = jsApiTicket.getTicket();
+        String signature = SHA1.genWithAmple("jsapi_ticket=" + jsapiTicket,
+                "noncestr=" + noncestr, "timestamp=" + timestamp, "url=" + url);
+        WxJsapiSignature jsapiSignature = new WxJsapiSignature();
+        jsapiSignature.setAppId(weChat.getAppId());
+        jsapiSignature.setTimestamp(timestamp);
+        jsapiSignature.setNonceStr(noncestr);
+        jsapiSignature.setUrl(url);
+        jsapiSignature.setSignature(signature);
+        log.info("createJsapiSignature   back  " + JsonUtil.objectToJson(jsapiSignature));
+        return jsapiSignature;
+    }
+
     /**
      * 客服发送图文消息给,用户
      *
      * @return
      */
-    public  WeChatBaseResponse sendMessageCustom(XmlRequest request) {
+    public WeChatBaseResponse sendMessageCustom(XmlRequest request) {
         log.info("调用微信 [客服发送图文消息给用户] 接口请求参数: {} " + JsonUtil.objectToJson(request));
         WeChatBaseResponse response = new WeChatBaseResponse();
         String token = getToken();
@@ -105,24 +140,35 @@ public class WeChatUtil {
                 response.setMessage(ArticlesEnum.SEND_MESSAGE_ERROR.getValue());
                 return response;
             }
+            log.info("openId   :   " + request.getFromUserName());
             //构建消息返回对象
             News news = new News();
-            String menKey = request.getEventKey();
+//            String menKey = request.getEventKey();
             news.setTouser(request.getFromUserName());//openid
             news.setMsgtype("news");
             NewsInfo newsInfo = new NewsInfo();
             List<Articles> list = new ArrayList<>();
             //匹配是从那个菜单点击进来的返回对应的图文消息
             //先判断用户是否是新关注用户
-            if (StringUtil.isEmpty(menKey)&&ArticlesEnum.USER_SUBSCRIBE.getValue().equals(request.getEvent())) {
+            if (StringUtil.isEmpty(request.getEventKey()) && ArticlesEnum.USER_SUBSCRIBE.getValue().equals(request.getEvent())) {
+                //用户关注公众号去微信接口查询用户信息，并保存
+                QueryUserInfoRequest queryUserInfo = new QueryUserInfoRequest();
+                queryUserInfo.setOpenid(request.getFromUserName());
+                QueryUserInfoResponse queryUserInfoResponse = this.queryUserInfo(queryUserInfo);
+                if (null != queryUserInfoResponse && queryUserInfoResponse.getSubscribe().equals(WeChatEnum.SUBSCRIBE.getCode())) {
+                    User user = new User();
+                    user = this.copyProperties(user, queryUserInfoResponse);
+                    BaseResponse add = userRpcService.add(user);
+                    log.info("用户关注订阅号保存用户信息结果  " + JsonUtil.objectToJson(add));
+                }
                 //构建文本消息请求   关注公众号后欢迎信息及带绑定手机号的链接消息
                 SendTextMessageRequest sendTextMessageRequest = new SendTextMessageRequest();
-                sendTextMessageRequest.setTouser(news.getTouser());
+                sendTextMessageRequest.setTouser(request.getFromUserName());
                 sendTextMessageRequest.setMsgtype(ArticlesEnum.TEXT_MESSAGE.getValue());
-                TextRequest textRequest=new TextRequest();
+                TextRequest textRequest = new TextRequest();
                 //填充 openid
-                textContent= textContent.replace("{0}",news.getTouser());
-                textRequest.setContent(textContent);
+                String content = textContent.replace("{0}", request.getFromUserName());
+                textRequest.setContent(content);
                 sendTextMessageRequest.setText(textRequest);
                 WeChatBaseResponse weChatBaseResponse = sendTextMessageCustom(sendTextMessageRequest);
                 if (null != weChatBaseResponse && WeChatEnum.CODE_0.getCode().equals(weChatBaseResponse.getReturnCode())) {
@@ -130,60 +176,124 @@ public class WeChatUtil {
                     response.setMessage(WeChatEnum.CODE_0.getValue());
                     return response;
                 }
-            } else if (ArticlesEnum.MENU_INFORMATION.getValue().equals(menKey)) {
+
+
+            } else if (StringUtil.isEmpty(request.getEventKey()) && ArticlesEnum.USER_UN_SUBSCRIBE.getValue().equals(request.getEvent())) {
+                //用户取消关注,通过openId 查询用户表，如果手机号字段有值，就致为空
+                User user = new User();
+                user.setOpenId(request.getFromUserName());
+                BaseResponse baseResponse = userRpcService.query(user);
+                log.info("用户取消关注查询用户信息返回结果 " + JsonUtil.objectToJson(baseResponse));
+                if (null != baseResponse && ReturnCodeEnum.CODE_1000.getCode().equals(baseResponse.getReturnCode()) && null != baseResponse.getDataInfo()) {
+                    User dataInfo = (User) baseResponse.getDataInfo();
+                    if (StringUtil.isNotEmpty(dataInfo.getMobile())) {
+                        EmployeePageParam employeePageParam = new EmployeePageParam();
+                        employeePageParam.setNameOrMobile(dataInfo.getMobile());
+                        PageResponse page = employeeRpcService.page(employeePageParam);
+                        log.info("通过手机号查询员工信息返回结果状态码 " + page.getReturnCode());
+                        if (page != null && ReturnCodeEnum.CODE_1000.getCode().equals(page.getReturnCode()) && CollectionUtil.isNotEmpty(page.getRecords())) {
+                            List records = page.getRecords();
+                            Employee employee = (Employee) records.get(0);//取第一条
+                            employee.setFollow(DataTypeEnum.NO_FOLLOW.getCode());
+                            log.info("修改员工信息请求参数 " + JsonUtil.objectToJson(employee));
+                            BaseResponse update = employeeRpcService.update(employee);
+                            log.info("修改员工信息返回结果 " + JsonUtil.objectToJson(update));
+                        }
+                    }
+                    baseResponse = userRpcService.delete(user);
+                    log.info("用户取消关注订阅号删除用户信息结果  " + JsonUtil.objectToJson(baseResponse));
+                }
+
+            } else if (ArticlesEnum.MENU_INFORMATION.getValue().equals(request.getEventKey())) {
                 //查询资讯的图文内容
                 Articles articlesTwo = new Articles();
                 articlesTwo.setDescription(ArticlesEnum.DESCRIPTION_TWO.getValue());
                 articlesTwo.setTitle(ArticlesEnum.TITLE_TWO.getValue());
-                String articlesUrl = newsUrlTwo + news.getTouser();
+                String articlesUrl = newsUrlTwo + request.getFromUserName();
                 articlesTwo.setUrl(articlesUrl);
                 articlesTwo.setPicurl(newsPicUrlTwo);
                 list.add(articlesTwo);
-            } else if (ArticlesEnum.MENU_IOT.getValue().equals(menKey)) {
+            } else if (ArticlesEnum.MENU_IOT.getValue().equals(request.getEventKey())) {
                 //物联网图文内容
                 Articles articles = new Articles();
                 articles.setDescription(ArticlesEnum.DESCRIPTION_IOT.getValue());
                 articles.setTitle(ArticlesEnum.TITLE_IOT.getValue());
-                String newsUrl = newsUrlIOT + news.getTouser();
+                String newsUrl = newsUrlIOT + request.getFromUserName();
                 articles.setUrl(newsUrl);
                 articles.setPicurl(newsPicUrlIOT);
                 list.add(articles);
-            } else if (ArticlesEnum.MENU_STATECOS.getValue().equals(menKey)) {
+            } else if (ArticlesEnum.MENU_STATECOS.getValue().equals(request.getEventKey())) {
                 //政企业务图文内容
                 Articles articles = new Articles();
                 articles.setDescription(ArticlesEnum.DESCRIPTION_STATECOS.getValue());
                 articles.setTitle(ArticlesEnum.TITLE_STATECOS.getValue());
-                String newsUrl = newsUrlStatecos + news.getTouser();
+                String newsUrl = newsUrlStatecos + request.getFromUserName();
                 articles.setUrl(newsUrl);
                 articles.setPicurl(newsPicUrlStatecos);
                 list.add(articles);
             }
-            newsInfo.setArticles(list);
-            news.setNews(newsInfo);
-            String url = baseUrl + "/message/custom/send?access_token=" + token;
-            log.info("调用微信 [客服发送图文消息给用户] 接口地址: {} ", url + " 参数 :" + JsonUtil.objectToJson(news));
-            try {
-                long startTime = System.currentTimeMillis();
-                String result = HttpClientUtil.doPostJson(url, JsonUtil.objectToJson(news));
-                long endTime = System.currentTimeMillis();
-                log.info("调用微信 [客服发送图文消息给用户] 接口用时: {} 毫秒", (endTime - startTime));
-                log.info("调用微信 [客服发送图文消息给用户] 接口返回信息: {} ", result);
-                response = JsonUtil.jsonToObject(result, WeChatBaseResponse.class);
-                //设置返回值和返回信息
-                if (null != response && null == response.getReturnCode()) {
-                    response.setReturnCode(WeChatEnum.CODE_0.getCode());
-                    response.setMessage(WeChatEnum.CODE_0.getValue());
+            //
+            if (list.size() > 0) {
+                newsInfo.setArticles(list);
+                news.setNews(newsInfo);
+                String url = baseUrl + "/message/custom/send?access_token=" + token;
+                log.info("调用微信 [客服发送图文消息给用户] 接口地址: {} ", url + " 参数 :" + JsonUtil.objectToJson(news));
+                try {
+                    long startTime = System.currentTimeMillis();
+                    String result = HttpClientUtil.doPostJson(url, JsonUtil.objectToJson(news));
+                    long endTime = System.currentTimeMillis();
+                    log.info("调用微信 [客服发送图文消息给用户] 接口用时: {} 毫秒", (endTime - startTime));
+                    log.info("调用微信 [客服发送图文消息给用户] 接口返回信息: {} ", result);
+                    response = JsonUtil.jsonToObject(result, WeChatBaseResponse.class);
+                    //设置返回值和返回信息
+                    if (null != response && null == response.getReturnCode()) {
+                        response.setReturnCode(WeChatEnum.CODE_0.getCode());
+                        response.setMessage(WeChatEnum.CODE_0.getValue());
+                    }
+                } catch (Exception e) {
+                    log.error("error", e);
+                    response.setReturnCode(ReturnCodeEnum.CODE_1004.getCode().toString());
+                    response.setMessage(ReturnCodeEnum.CODE_1004.getValue());
                 }
-            } catch (Exception e) {
-                log.error("error", e);
-                response.setReturnCode(ReturnCodeEnum.CODE_1004.getCode().toString());
-                response.setMessage(ReturnCodeEnum.CODE_1004.getValue());
             }
         }
         //如果token 失效清空token
         emptyToken(response);
         log.info("调用微信 [客服发送图文消息给用户] back: " + JsonUtil.objectToJson(response));
         return response;
+    }
+
+    private User copyProperties(User user, QueryUserInfoResponse response) {
+        log.info("copyProperties  request  User : " + JsonUtil.objectToJson(user) + " QueryUserInfoResponse : " + JsonUtil.objectToJson(response));
+        if (null == user) {
+            user = new User();
+        }
+        //给用户set属性
+        user.setSubscribe(response.getSubscribe());
+        user.setOpenId(response.getOpenid());
+        user.setNickName(response.getNickName());
+        user.setSex(Integer.parseInt(response.getSex()));
+        user.setLanguage(response.getLanguage());
+        user.setCity(response.getCity());
+        user.setProvince(response.getProvince());
+        user.setCountry(response.getCountry());
+        user.setHeadImgUrl(response.getHeadImgUrl());
+        user.setSubscribeTime(Long.parseLong(response.getSubscribeTime()));
+        user.setUnionId(response.getUnionId());
+        user.setRemark(response.getRemark());
+        user.setGroupId(response.getGroupId());
+        user.setBlackList(DataTypeEnum.NO_BLACKLIST.getCode());
+        user.setFollow(DataTypeEnum.FOLLOW.getCode());
+        user.setTagidList(JsonUtil.objectToJson(response.getTagIdList()));
+        user.setBlackList(DataTypeEnum.NO_BLACKLIST.getCode());
+        user.setCreatedBy(Long.parseLong(WeChatEnum.INSTALL_ORGID.getValue()));//初始化orgId
+        user.setUpdatedBy(user.getCreatedBy());
+        long currentTimeMillis = System.currentTimeMillis();
+        user.setCreatedTime(currentTimeMillis);
+        user.setUpdatedTime(currentTimeMillis);
+        user.setDeleted(DataTypeEnum.DELETE_ONLINE.getCode());
+        log.info("copyProperties  back  " + JsonUtil.objectToJson(user));
+        return user;
     }
 
     /**
@@ -237,7 +347,6 @@ public class WeChatUtil {
         XmlRequest xmlRequest = XmlUtil.deserialize(xmlString, XmlRequest.class);
         log.info("XmlRequest  is " + JsonUtil.objectToJson(xmlRequest));
         String openId = xmlRequest.getFromUserName(); //获取微信公众号id
-        String url = "http://stagegw.vpclub.cn/shm/web/app/#/login?openId=" + openId;
         if (StringUtil.isNotEmpty(openId)) {
             log.info("get openId  " + openId);
             return xmlRequest;
@@ -311,7 +420,7 @@ public class WeChatUtil {
             Map<String, Object> map = JsonUtil.jsonToMap(str);
             Integer expiresIn = (Integer) map.get("expires_in");
             accessToken = (String) map.get("access_token");
-            putToken(accessToken, Long.valueOf(expiresIn - 60 * 10));//提前10分钟清空token
+            putToken(accessToken, Long.valueOf(expiresIn - 60 * 30));//提前30分钟清空token
         } catch (Exception e) {
             log.error("error", e);
         }
