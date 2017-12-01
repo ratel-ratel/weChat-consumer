@@ -14,9 +14,6 @@ import lombok.ToString;
 @AllArgsConstructor
 public enum DataTypeEnum {
 
-
-
-
     DELETE_ONLINE(1),//删除标识  1:在线 2:删除
     DELETE(2),//删除标识  1:在线 2:删除
     STATUS_RELEASE(2),//文章状态  1:草稿;2:发布

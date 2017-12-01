@@ -6,7 +6,8 @@ import cn.vpclub.moses.core.model.response.BaseResponse;
 import cn.vpclub.moses.utils.common.JsonUtil;
 
 import cn.vpclub.shm.shcmcc.consumer.entity.User;
-import cn.vpclub.shm.shcmcc.consumer.enums.WeChatEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.RoleEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.WeChatEnum;
 import cn.vpclub.shm.shcmcc.consumer.model.enums.DataTypeEnum;
 import cn.vpclub.shm.shcmcc.consumer.model.request.weChat.QueryUserInfoRequest;
 import cn.vpclub.shm.shcmcc.consumer.model.response.QueryUserInfoResponse;
@@ -29,49 +30,86 @@ public class UserUtil {
     private UserRpcService userRpcService;
     private WeChatUtil weChatUtil;
 
+    /**
+     * 判断用户是否关注并相应保存或更新
+     *
+     * @param user
+     * @return
+     */
     public BaseResponse queryUserFromDatabaseOrWaChat(User user) {
-        log.info("queryUserFromDatabaseOrWaChat  request  " + JsonUtil.objectToJson(user));
-        BaseResponse baseResponse = new BaseResponse();
-        baseResponse = userRpcService.query(user);
-        log.info("userRpcService  query  " + JsonUtil.objectToJson(baseResponse));
-        //如果在数据库中查询到了,直接返回
-        if (null != baseResponse && ReturnCodeEnum.CODE_1000.getCode().equals(baseResponse.getReturnCode())) {
-            return baseResponse;
-        }
-        //数据库中没有查询公众号下面的用户
-        QueryUserListResponse users = weChatUtil.getUsers(null);
-        if (null == users || null == users.getData() || CollectionUtil.isEmpty(users.getData().getOpenid())) {
-            baseResponse = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
-            log.info("获取公众号下所有用户openId 失败");
-            return baseResponse;
-        }
-        List<String> openid = users.getData().getOpenid();
-        //判断 是否为此公众号下用户
-        if (openid.contains(user.getOpenId())) {
+        BaseResponse<User> response;
+        response = userRpcService.query(user);
+        log.info("调用用户查询接口返回结果:  " + JsonUtil.objectToJson(response));
+        //存在则更新，否则查询微信接口
+        if (null != response && ReturnCodeEnum.CODE_1000.getCode().equals(response.getReturnCode())) {
+            User userInfo = response.getDataInfo();
+            if (user.getMobile().equals(userInfo.getMobile())) {
+                response.setMessage(RoleEnum.CODE_2006.getValue());
+            } else {
+                //更新该条记录
+                userInfo.setMobile(user.getMobile());
+                response = userRpcService.update(userInfo);
+                log.info("更新用户信息返回结果: {}" + JsonUtil.objectToJson(response));
+            }
+        } else {
+            //判断是否为此公众号下用户
             QueryUserInfoRequest queryUserInfo = new QueryUserInfoRequest();
             queryUserInfo.setOpenid(user.getOpenId());
             QueryUserInfoResponse queryUserInfoResponse = weChatUtil.queryUserInfo(queryUserInfo);
+            log.info("查询该用户信息请返回结果: {}", queryUserInfoResponse);
             if (null != queryUserInfoResponse && WeChatEnum.CODE_0.getCode().equals(queryUserInfoResponse.getReturnCode())) {
-                User add = new User();
-                add = copyProperties(add, queryUserInfoResponse);
-                log.info("add  users   request " + JsonUtil.objectToJson(add));
-                baseResponse = userRpcService.add(add);
-                log.info("add  users   back " + JsonUtil.objectToJson(baseResponse));
-                if (null == baseResponse || !ReturnCodeEnum.CODE_1000.getCode().equals(baseResponse.getReturnCode())) {
-                    log.info("添加用户信息失败");
-                    baseResponse = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
-                }
+                //将用户信息添加至数据库
+                copyProperties(user, queryUserInfoResponse);//对象赋值
+                log.info("用户添加请求参数: {}", user);
+                response = userRpcService.add(user);
+                log.info("用户添加返回结果: {}", response.getReturnCode());
             } else {
                 log.info("查询微信用户信息失败");
-                baseResponse = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
+                response = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
             }
-        } else {
-            log.info("此用户不是公众号下用户");
-            baseResponse = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
         }
-        log.info("queryUserFromDatabaseOrWaChat  back  " + JsonUtil.objectToJson(baseResponse));
-        return baseResponse;
+        return response;
     }
+
+    //通过openId查询数据库或微信查询出用户信息(如果数据库中没有用户信息，微信订阅号下有就保存用户信息)
+    public BaseResponse queryUserDatabaseOrWaChat(User user) {
+        log.info("通过openId查询数据库或微信查询出用户信息请求参数  " + JsonUtil.objectToJson(user));
+        BaseResponse response;
+        response = userRpcService.query(user);
+        log.info("调用用户查询接口返回结果:  " + JsonUtil.objectToJson(response));
+
+        if (null != response && ReturnCodeEnum.CODE_1000.getCode().equals(response.getReturnCode()) && null != response.getDataInfo()) {
+            return response;
+        } else {
+            //判断是否为此公众号下用户，并保存改用户信息
+            QueryUserInfoRequest queryUserInfo = new QueryUserInfoRequest();
+            queryUserInfo.setOpenid(user.getOpenId());
+            QueryUserInfoResponse queryUserInfoResponse = weChatUtil.queryUserInfo(queryUserInfo);
+            log.info("查询该用户信息请返回结果: {}", queryUserInfoResponse);
+            //为关注状态
+            if (null != queryUserInfoResponse && WeChatEnum.CODE_0.getCode().equals(queryUserInfoResponse.getReturnCode())
+                    && queryUserInfoResponse.getSubscribe().equals(WeChatEnum.SUBSCRIBE.getCode())) {
+                //将用户信息添加至数据库
+                copyProperties(user, queryUserInfoResponse);//对象赋值
+                log.info("用户添加请求参数  : " + JsonUtil.objectToJson(user));
+                response = userRpcService.add(user);
+                log.info("用户添加返回结果  : " + JsonUtil.objectToJson(response));
+            } else {
+                log.info("查询微信用户信息失败");
+                response = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
+            }
+        }
+        log.info("通过openId查询数据库或微信查询出用户信息返回结果  " + JsonUtil.objectToJson(response));
+        return response;
+    }
+
+    /**
+     * 将QueryUserInfoResponse 中属性复制到 User ，
+     *
+     * @param user
+     * @param response
+     * @return
+     */
 
     private User copyProperties(User user, QueryUserInfoResponse response) {
         log.info("copyProperties  request  User : " + JsonUtil.objectToJson(user) + " QueryUserInfoResponse : " + JsonUtil.objectToJson(response));
@@ -82,7 +120,8 @@ public class UserUtil {
         user.setSubscribe(response.getSubscribe());
         user.setOpenId(response.getOpenid());
         user.setNickName(response.getNickName());
-        user.setSex(Integer.parseInt(response.getSex()));
+        Integer sex = null == response.getSex() ? 0 : Integer.parseInt(response.getSex());
+        user.setSex(sex);
         user.setLanguage(response.getLanguage());
         user.setCity(response.getCity());
         user.setProvince(response.getProvince());

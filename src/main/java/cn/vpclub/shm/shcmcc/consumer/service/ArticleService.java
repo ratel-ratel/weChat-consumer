@@ -1,5 +1,6 @@
 package cn.vpclub.shm.shcmcc.consumer.service;
 
+import cn.vpclub.moses.utils.common.StringUtil;
 import cn.vpclub.shm.shcmcc.consumer.entity.Employee;
 import cn.vpclub.shm.shcmcc.consumer.entity.User;
 import cn.vpclub.shm.shcmcc.consumer.model.enums.DataTypeEnum;
@@ -135,7 +136,7 @@ public class ArticleService {
         PageResponse response;
         //业务操作
         log.info("文章分页查询请求参数: {} ", request);
-        if (null == request || null == request.getOpenId()) {
+        if (null == request || StringUtil.isEmpty(request.getOpenId())) {
             response = BackResponseUtil.getPageResponse(ReturnCodeEnum.CODE_1006.getCode());
         } else {
             User user = new User();
@@ -145,21 +146,26 @@ public class ArticleService {
                 //判定是否是内部员工
                 EmployeePageParam employeePageParam = new EmployeePageParam();
                 user = baseResponse.getDataInfo();
-                employeePageParam.setNameOrMobile(user.getMobile());
-                log.info("员工查询请求参数: {}", employeePageParam);
-                PageResponse<Employee> pageResponse = employeeRpcService.page(employeePageParam);
-                log.info("员工查询返回结果: {}", pageResponse);
-                if (ReturnCodeEnum.CODE_1000.getCode().equals(pageResponse.getReturnCode())) {
-                    //表示是内部员工
-                    request.setType(DataTypeEnum.TYPE_PRIVATE.getCode());
-                } else {
+                if(StringUtil.isEmpty(user.getMobile())){
                     request.setType(DataTypeEnum.TYPE_PUBLIC.getCode());
+                }else{
+                    employeePageParam.setNameOrMobile(user.getMobile());
+                    log.info("员工查询请求参数: {}", employeePageParam);
+                    PageResponse<Employee> pageResponse = employeeRpcService.page(employeePageParam);
+                    log.info("员工查询返回结果: {}", pageResponse);
+                    if (ReturnCodeEnum.CODE_1000.getCode().equals(pageResponse.getReturnCode())) {
+                        //表示是内部员工
+                        request.setType(DataTypeEnum.TYPE_PRIVATE.getCode());
+                    } else {
+                        request.setType(DataTypeEnum.TYPE_PUBLIC.getCode());
+                    }
                 }
             }else{
                 request.setType(DataTypeEnum.TYPE_PUBLIC.getCode());
             }
         }
         request.setDeleted(DataTypeEnum.DELETE_ONLINE.getCode());
+        request.setStatus(DataTypeEnum.STATUS_RELEASE.getCode());//查看已发布的
         response = articleRpcService.page(request);
         log.info("文章分页查询返回结果: {} " + response.getReturnCode());
         return response;

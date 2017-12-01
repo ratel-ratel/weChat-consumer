@@ -1,0 +1,75 @@
+syntax = "proto3";
+import "type.proto";
+
+option java_package = "cn.vpclub.shm.shcmcc.consumer.api";
+option java_outer_classname = "RoleProto";
+
+message RoleDTO {
+    Long id = 1;
+    //角色名称
+    string name = 2;
+    //更新操作员
+    string updateName = 3;
+    //备注
+    string remark = 4;
+    //创建时间
+    Long createdTime = 5;
+    //创建人
+    Long createdBy = 6;
+    //更新时间
+    Long updatedTime = 7;
+    //更新人
+    Long updatedBy = 8;
+    //删除标识 1 在线 2 删除
+    Integer deleted = 9;
+
+}
+message RoleRequest {
+    Integer pageNumber = 5;
+    Integer pageSize = 6;
+}
+message RoleResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    RoleDTO dataInfo = 3;
+}
+message RoleListResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated RoleDTO pageData = 3;
+    Integer pageNumber = 4;
+    Integer pageSize = 5;
+    Integer totalRecord = 6;
+}
+message RolePageResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated RoleDTO records = 3;
+    Integer current = 4;
+    Integer size = 5;
+    Integer total = 6;
+    Integer pages = 7;
+    Integer offset = 8;
+    Integer limit = 9;
+    string orderByField = 10;
+    bool searchCount = 11;
+    bool optimizeCount = 12;
+    bool isAsc = 13;
+}
+service RoleService {
+    rpc add (RoleDTO) returns (RoleResponse) {
+    }
+    rpc query (RoleDTO) returns (RoleResponse) {
+    }
+    rpc update (RoleDTO) returns (RoleResponse) {
+    }
+    rpc delete (RoleDTO) returns (RoleResponse) {
+    }
+    rpc list (RoleRequest) returns (RoleListResponse) {
+    }
+    rpc page (RoleRequest) returns (RolePageResponse) {
+    }
+}
+
+
+

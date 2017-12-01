@@ -18,4 +18,9 @@ public class EmployeePageParam extends PageBaseSearchParam {
      * 名称或手机号码（模糊查询）
      */
     private  String nameOrMobile;
+
+    /**
+     * 是否关注
+     */
+    private Integer follow;
 }

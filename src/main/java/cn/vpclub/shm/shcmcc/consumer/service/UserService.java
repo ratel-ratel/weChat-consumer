@@ -5,8 +5,8 @@ import cn.vpclub.moses.utils.common.JsonUtil;
 import cn.vpclub.moses.utils.common.StringUtil;
 import cn.vpclub.moses.utils.hazelcast.HCacheMapUtil;
 import cn.vpclub.moses.utils.image.ValidateCode;
-import cn.vpclub.shm.shcmcc.consumer.enums.NameSpaceConstant;
-import cn.vpclub.shm.shcmcc.consumer.enums.RoleEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.NameSpaceConstant;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.RoleEnum;
 import cn.vpclub.shm.shcmcc.consumer.model.request.UserRequest;
 import cn.vpclub.shm.shcmcc.consumer.rpc.UserRpcService;
 import cn.vpclub.shm.shcmcc.consumer.model.request.UserPageParam;;
@@ -25,7 +25,6 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.json.Json;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -49,6 +48,7 @@ public class UserService {
     private UserRpcService userRpcService;
     private HazelcastInstance hazelcastInstance;
     private UserUtil userUtil;
+
     public BaseResponse add(User request) {
         BaseResponse response;
         //业务操作
@@ -145,51 +145,60 @@ public class UserService {
      * @return
      */
     public BaseResponse bindMobile(UserRequest request) {
-        BaseResponse response=new BaseResponse();
+        BaseResponse response;
         //业务操作
-        log.info("bindMobile User request " + JsonUtil.objectToJson(request));
+        log.info("绑定手机号请求参数: {}", request);
+        try {
+            request.validate(ValidatorConditionType.UPDATE);
+        } catch (AttributeValidatorException e) {
+            log.info("请求参数不全");
+            response = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
+            return response;
+        }
         //校验图片验证码
         String validateCode = request.getValidateCode();
-        BaseResponse baseResponse = validateCode(validateCode);
-        if (null == baseResponse || !ReturnCodeEnum.CODE_1000.getCode().equals(baseResponse.getReturnCode())) {
-            response=BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
+        response = validateCode(validateCode);
+        log.info("图片验证码校验返回结果: {}", response.getReturnCode());
+        if (null == response || !ReturnCodeEnum.CODE_1000.getCode().equals(response.getReturnCode())) {
+            response.setReturnCode(ReturnCodeEnum.CODE_1005.getCode());
             response.setMessage(RoleEnum.CODE_2004.getValue());
+            log.info("图片验证码校验失败");
             return response;
         }
         //验证通过则清除验证码缓存
         HCacheMapUtil.remove(hazelcastInstance, NameSpaceConstant.GRAPHIC_CODE, validateCode);
         //校验短信验证码
         response = validateSmsCode(request);
+        log.info("短息验证码校验返回结果: {}", response.getReturnCode());
         if (null == response || !ReturnCodeEnum.CODE_1000.getCode().equals(response.getReturnCode())) {
+            log.info("短息验证码校验失败");
+            response.setReturnCode(ReturnCodeEnum.CODE_1005.getCode());
+            response.setMessage(RoleEnum.CODE_2005.getValue());
             return response;
         }
         //验证通过,清除短信验证码缓存
         HCacheMapUtil.remove(hazelcastInstance, NameSpaceConstant.SEND_MESSAGE, request.getMobile());
-        //通过 openId 查询出微信用户
+
+        //通过 openId 查询出微信用户信息
         User user = new User();
         user.setOpenId(request.getOpenId());
-        log.info("User query request " + JsonUtil.objectToJson(user));
-        BaseResponse query = userUtil.queryUserFromDatabaseOrWaChat(user);
-        log.info("User query back " + JsonUtil.objectToJson(query));
-        if (null == query || !query.getReturnCode().equals(ReturnCodeEnum.CODE_1000.getCode()) || null == query.getDataInfo()) {
-            response = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1002.getCode());
-            response.setMessage(RoleEnum.CODE_2002.getValue());
-            return response;
+        response = userUtil.queryUserDatabaseOrWaChat(user);
+        if (null == response || !response.getReturnCode().equals(ReturnCodeEnum.CODE_1000.getCode()) || null == response.getDataInfo()) {
+            response = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
+            response.setMessage(RoleEnum.CODE_2007.getValue());
+        } else {
+            User dataInfo = (User) response.getDataInfo();
+            if (dataInfo.getMobile().equals(request.getMobile())) {
+                //用户信息中手机号和要绑定的手机号一致
+                response = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
+                response.setMessage(RoleEnum.CODE_2006.getValue());
+            } else {
+                //用户信息中手机号和要绑定的手机号不一致
+                dataInfo.setMobile(request.getMobile());
+                response = userRpcService.update(dataInfo);
+            }
         }
-        User dataInfo = (User) query.getDataInfo();
-        //查询用户是否已经绑定手机号
-        if (StringUtil.isEmpty(dataInfo.getMobile())){
-            dataInfo.setMobile(request.getMobile());
-            log.info("update User request " + JsonUtil.objectToJson(dataInfo));
-            response = userRpcService.update(dataInfo);
-            log.info("update User back " + JsonUtil.objectToJson(response));
-        }else {
-            response=BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1005.getCode());
-            response.setMessage(RoleEnum.CODE_2006.getValue());
-        }
-        log.info("bindMobile User back " + JsonUtil.objectToJson(response));
         return response;
-
     }
 
     /**
@@ -228,6 +237,7 @@ public class UserService {
         }
         return baseResponse;
     }
+
     /**
      * 校验短信验证码
      *
@@ -240,7 +250,7 @@ public class UserService {
         log.info("validateSmsCode request ", JsonUtil.objectToJson(request));
         String hazeCode = HCacheMapUtil.get(hazelcastInstance, NameSpaceConstant.SEND_MESSAGE, request.getMobile(), String.class);
         log.info("hazeCode is: {}", hazeCode);
-        if (null==request||StringUtil.isEmpty(request.getSmsCode())) {
+        if (null == request || StringUtil.isEmpty(request.getSmsCode())) {
             baseResponse.setReturnCode(ReturnCodeEnum.CODE_1006.getCode());
             baseResponse.setMessage(ReturnCodeEnum.CODE_1006.getValue());
             return baseResponse;
@@ -254,6 +264,7 @@ public class UserService {
         }
         return baseResponse;
     }
+
     /**
      * 生成图片验证码
      *

@@ -23,7 +23,7 @@ public class XmlRequest implements Serializable {
     @XmlElement(name = "CreateTime")
     private String CreateTime;
     @XmlElement(name = "MsgType")
-    private String MsgType;
+    private String MsgType;//消息类型
     @XmlElement(name = "Event")
     private String Event;
     @XmlElement(name = "EventKey")

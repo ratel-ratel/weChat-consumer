@@ -1,6 +1,7 @@
 package cn.vpclub.shm.shcmcc.consumer.util;
 
 import cn.vpclub.moses.core.enums.ReturnCodeEnum;
+import cn.vpclub.moses.core.model.response.BackResponseUtil;
 import cn.vpclub.moses.core.model.response.BaseResponse;
 import cn.vpclub.moses.core.model.response.PageResponse;
 import cn.vpclub.moses.utils.common.JsonUtil;
@@ -16,6 +17,7 @@ import cn.vpclub.shm.shcmcc.consumer.model.enums.ArticlesEnum;
 import cn.vpclub.shm.shcmcc.consumer.model.enums.DataTypeEnum;
 import cn.vpclub.shm.shcmcc.consumer.model.enums.WeChatEnum;
 import cn.vpclub.shm.shcmcc.consumer.model.request.EmployeePageParam;
+import cn.vpclub.shm.shcmcc.consumer.model.request.UserPageParam;
 import cn.vpclub.shm.shcmcc.consumer.model.request.weChat.*;
 import cn.vpclub.shm.shcmcc.consumer.model.response.*;
 import cn.vpclub.shm.shcmcc.consumer.rpc.EmployeeRpcService;
@@ -80,9 +82,13 @@ public class WeChatUtil {
     private String newsPicUrlIOT;
     //政企业务的图文地址
     @Value("${articles.newsUrlStatecos}")
-    private String newsUrlStatecos;
+    private String newsUrlStatecos;//内部员工
+    @Value("${articles.newsUrlCustomerStatecos}")
+    private String newsCustomerStatecos;//客户版
     @Value("${articles.newsPicUrlStatecos}")
     private String newsPicUrlStatecos;
+
+    //用户关注欢迎语
     @Value("${articles.textContent}")
     private String textContent;
 
@@ -223,14 +229,31 @@ public class WeChatUtil {
                 articles.setPicurl(newsPicUrlIOT);
                 list.add(articles);
             } else if (ArticlesEnum.MENU_STATECOS.getValue().equals(request.getEventKey())) {
+
                 //政企业务图文内容
                 Articles articles = new Articles();
                 articles.setDescription(ArticlesEnum.DESCRIPTION_STATECOS.getValue());
                 articles.setTitle(ArticlesEnum.TITLE_STATECOS.getValue());
-                String newsUrl = newsUrlStatecos + request.getFromUserName();
-                articles.setUrl(newsUrl);
-                articles.setPicurl(newsPicUrlStatecos);
-                list.add(articles);
+                BaseResponse baseResponse = this.employeeChecked(request.getFromUserName());
+
+                if (baseResponse != null && baseResponse.getDataInfo().equals(DataTypeEnum.TYPE_PUBLIC.getCode())) {
+                    //普通客户版
+                    log.info("发送普通用户版  地址"+newsCustomerStatecos);
+                    String newsUrl = newsCustomerStatecos + request.getFromUserName();
+                    articles.setUrl(newsUrl);
+                    articles.setPicurl(newsPicUrlStatecos);
+                    list.add(articles);
+                } else if (baseResponse != null && baseResponse.getDataInfo().equals(DataTypeEnum.TYPE_PRIVATE.getCode())) {
+                    //内部员工版
+                    log.info("发送内部员工版  地址"+newsUrlStatecos);
+                    String newsUrl = newsUrlStatecos + request.getFromUserName();
+                    articles.setUrl(newsUrl);
+                    articles.setPicurl(newsPicUrlStatecos);
+                    list.add(articles);
+                } else {
+                    log.info("用户非法,既不是内部员工也不是普通用户");
+                }
+
             }
             //
             if (list.size() > 0) {
@@ -486,7 +509,7 @@ public class WeChatUtil {
                 response.setMessage(ReturnCodeEnum.CODE_1004.getValue());
             }
         }
-//        log.info("getUsers result: " + JsonUtil.objectToJson(response.getReturnCode()));
+        log.info("getUsers result: " + JsonUtil.objectToJson(response.getReturnCode()));
         //如果token 失效清空token
         emptyToken(response);
         return response;
@@ -992,5 +1015,39 @@ public class WeChatUtil {
         return response;
     }
 
-
+    /**
+     * 判断是否是内部员工
+     *
+     * @param openId
+     * @return
+     */
+    public BaseResponse employeeChecked(String openId) {
+        BaseResponse baseResponse;
+        log.info("内部员工判断请求参数: {}", openId);
+        baseResponse = BackResponseUtil.getBaseResponse(ReturnCodeEnum.CODE_1000.getCode());
+        baseResponse.setDataInfo(1);//默认不是内部员工
+        if (StringUtil.isNotEmpty(openId)) {
+            //查询用户信息表
+            UserPageParam userPageParam = new UserPageParam();
+            userPageParam.setOpenId(openId);
+            userPageParam.setDeleted(DataTypeEnum.DELETE_ONLINE.getCode());
+            PageResponse pageResponse = userRpcService.page(userPageParam);
+            log.info("查询用户信息表返回结果: {}", pageResponse);
+            if (ReturnCodeEnum.CODE_1000.getCode().equals(pageResponse.getReturnCode())) {
+                User user = (User) pageResponse.getRecords().get(0);
+                if (StringUtil.isNotEmpty(user.getMobile())) {
+                    //查询员工信息表
+                    EmployeePageParam employeePageParam = new EmployeePageParam();
+                    employeePageParam.setNameOrMobile(user.getMobile());
+                    pageResponse = employeeRpcService.page(employeePageParam);
+                    log.info("查询员工信息表返回结果: {}", pageResponse);
+                    if (ReturnCodeEnum.CODE_1000.getCode().equals(pageResponse.getReturnCode())) {
+                        baseResponse.setDataInfo(2);//表示内部员工
+                    }
+                }
+            }
+        }
+        log.info("返回前端状态:", JsonUtil.objectToJson(baseResponse));
+        return baseResponse;
+    }
 }

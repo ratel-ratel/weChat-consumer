@@ -1,11 +1,14 @@
 package cn.vpclub.shm.shcmcc.consumer.rpc;
 
 
+import cn.vpclub.moses.core.model.response.BaseResponse;
 import cn.vpclub.moses.core.model.response.PageResponse;
 import cn.vpclub.shm.shcmcc.consumer.api.EmployeeProto;
 import cn.vpclub.shm.shcmcc.consumer.api.EmployeeProto.EmployeePageResponse;
 import cn.vpclub.shm.shcmcc.consumer.api.EmployeeServiceGrpc.EmployeeServiceBlockingStub;
+import cn.vpclub.shm.shcmcc.consumer.api.RoleProto;
 import cn.vpclub.shm.shcmcc.consumer.entity.Employee;
+import cn.vpclub.shm.shcmcc.consumer.entity.Role;
 import cn.vpclub.shm.shcmcc.consumer.model.request.EmployeePageParam;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,5 +33,15 @@ public class EmployeeRpcService {
         return (PageResponse) fromGRpcMessage(listResponse, PageResponse.class, Employee.class);
     }
 
+    public BaseResponse update(Employee request) {
+        EmployeeProto.EmployeeDTO dto = (EmployeeProto.EmployeeDTO) toGRpcMessage(request, EmployeeProto.EmployeeDTO.newBuilder());
+        EmployeeProto.EmployeeResponse response = blockingStub.update(dto);
+        return (BaseResponse) fromGRpcMessage(response, BaseResponse.class, Employee.class);
+    }
 
+    public BaseResponse query(Employee request) {
+        EmployeeProto.EmployeeDTO dto = (EmployeeProto.EmployeeDTO) toGRpcMessage(request, EmployeeProto.EmployeeDTO.newBuilder());
+        EmployeeProto.EmployeeResponse response = blockingStub.query(dto);
+        return (BaseResponse) fromGRpcMessage(response, BaseResponse.class, Employee.class);
+    }
 }

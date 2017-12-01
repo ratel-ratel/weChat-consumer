@@ -1,0 +1,88 @@
+syntax = "proto3";
+import "type.proto";
+
+option java_package = "cn.vpclub.shm.shcmcc.consumer.api";
+option java_outer_classname = "EmployeeProto";
+
+message EmployeeDTO {
+    Long id = 1;
+    //员工名称
+    string name = 2;
+    //手机号码
+    string mobile = 3;
+    //是否关注（1：关注；2：没有关注）
+    Integer follow = 4;
+    //创建人
+    Long createdBy = 5;
+    //创建时间
+    Long createdTime = 6;
+    //更新人
+    Long updatedBy = 7;
+    //更新时间
+    Long updatedTime = 8;
+    //删除标识（1：在线；2：删除）
+    Integer deleted = 9;
+
+}
+message IdListRequest {
+    repeated Long idList = 1;
+}
+message EmployeeListRequest {
+    repeated EmployeeDTO employeeList = 1;
+}
+message EmployeeRequest {
+    string nameOrMobile = 4;
+    Integer pageNumber = 5;
+    Integer pageSize = 6;
+    Integer follow = 7;
+}
+message EmployeeResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    EmployeeDTO dataInfo = 3;
+}
+message EmployeeListResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated EmployeeDTO pageData = 3;
+    Integer pageNumber = 4;
+    Integer pageSize = 5;
+    Integer totalRecord = 6;
+}
+message EmployeePageResponse {
+    Integer returnCode = 1;
+    string message = 2;
+    repeated EmployeeDTO records = 3;
+    Integer current = 4;
+    Integer size = 5;
+    Integer total = 6;
+    Integer pages = 7;
+    Integer offset = 8;
+    Integer limit = 9;
+    string orderByField = 10;
+    bool searchCount = 11;
+    bool optimizeCount = 12;
+    bool isAsc = 13;
+}
+service EmployeeService {
+    rpc add (EmployeeDTO) returns (EmployeeResponse) {
+    }
+    rpc query (EmployeeDTO) returns (EmployeeResponse) {
+    }
+    rpc update (EmployeeDTO) returns (EmployeeResponse) {
+    }
+    rpc delete (EmployeeDTO) returns (EmployeeResponse) {
+    }
+    rpc list (EmployeeListRequest) returns (EmployeeListResponse) {
+    }
+    rpc page (EmployeeRequest) returns (EmployeePageResponse) {
+    }
+    rpc remove (IdListRequest) returns (EmployeeResponse) {
+    }
+    rpc save (EmployeeListRequest) returns (EmployeeResponse) {
+    }
+
+}
+
+
+

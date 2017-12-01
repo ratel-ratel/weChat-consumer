@@ -97,9 +97,5 @@ public class Article extends BaseAbstractParameter {
      */
     @ApiModelProperty("删除标识  1:在线 2:删除")
     private Integer deleted;
-    /**
-     * 用于前端回显
-     */
-    private String echo;
 
 }

@@ -97,7 +97,6 @@ public class WeController {
                 XmlRequest xmlRequest = weChatUtil.getXmlRequest(xml);
                 log.info("XmlRequest  is  " + xmlRequest);
                 if (StringUtil.isNotEmpty(xmlRequest.getFromUserName())) {
-
                     WeChatBaseResponse weChatBaseResponse = weChatUtil.sendMessageCustom(xmlRequest);
                     log.info("sendMessageCustom  back  " + JsonUtil.objectToJson(weChatBaseResponse));
                 }
@@ -105,5 +104,42 @@ public class WeController {
 
         }
     }
+    /**
+     * 前段分享获取jsapi授权登相关参数
+     */
+    @RequestMapping(value = "/getJsApiAuth", method = RequestMethod.POST)
+    @ResponseBody
+    public BaseResponse getJsapiAuth(@RequestBody Map<String, Object> reqMap, HttpServletResponse resp) throws me.chanjar.weixin.common.exception.WxErrorException {
+        log.info("进入WechatAuthController.getJsapiAuth");
+        BaseResponse response = new BaseResponse();
+        boolean flag = true;
+        //发起请求网页的URL
+        String url = MapParserUtil.getStringFromMap(reqMap, "pageUrl");
+        log.info("发起请求网页的URL：{}", url);
+        if (StringUtils.isEmpty(url)) {
+            log.info("页面请求地址pagUrl为空");
+            flag = false;
+            response.setReturnCode(ReturnCodeEnum.CODE_1006.getCode());
+            response.setMessage("pageUrl" + ReturnCodeEnum.CODE_1006.getValue());
+            return response;
+        }
+        if (flag) {
+            log.info("开始调用服务，获取微信签名。");
+            //调用服务，生成签名
+            WxJsapiSignature signature = weChatUtil.createJsapiSignature(url);
+            log.info("签名业务处理完毕，返回最终结果：{} ", signature);
+            if (null!=signature){
+                response.setReturnCode(ReturnCodeEnum.CODE_1000.getCode());
+                response.setMessage(ReturnCodeEnum.CODE_1000.getValue());
+                response.setDataInfo(signature);
+            }else {
+                log.info("签名生成失败");
+                response.setReturnCode(ReturnCodeEnum.CODE_1006.getCode());
+                response.setMessage(ReturnCodeEnum.CODE_1006.getValue());
+            }
 
+        }
+        log.info("前段分享获取jsapi授权,返回 "+JsonUtil.objectToJson(response));
+        return response;
+    }
 }

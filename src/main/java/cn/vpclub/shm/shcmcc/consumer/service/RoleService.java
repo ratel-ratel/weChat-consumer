@@ -1,7 +1,6 @@
 package cn.vpclub.shm.shcmcc.consumer.service;
 
-import cn.vpclub.moses.utils.common.StringUtil;
-import cn.vpclub.shm.shcmcc.consumer.enums.RoleEnum;
+import cn.vpclub.shm.shcmcc.consumer.model.enums.RoleEnum;
 import cn.vpclub.moses.utils.common.JsonUtil;
 import cn.vpclub.shm.shcmcc.consumer.rpc.RoleRpcService;
 import cn.vpclub.shm.shcmcc.consumer.model.request.RolePageParam;;
