@@ -9,7 +9,6 @@ import cn.vpclub.moses.utils.common.StringUtil;
 import cn.vpclub.moses.utils.common.XmlUtil;
 import cn.vpclub.moses.utils.hazelcast.HCacheMapUtil;
 import cn.vpclub.moses.utils.web.HttpRequestUtil;
-
 import cn.vpclub.shm.shcmcc.consumer.entity.Employee;
 import cn.vpclub.shm.shcmcc.consumer.entity.User;
 import cn.vpclub.shm.shcmcc.consumer.entity.WeChat;
@@ -22,7 +21,6 @@ import cn.vpclub.shm.shcmcc.consumer.model.request.weChat.*;
 import cn.vpclub.shm.shcmcc.consumer.model.response.*;
 import cn.vpclub.shm.shcmcc.consumer.rpc.EmployeeRpcService;
 import cn.vpclub.shm.shcmcc.consumer.rpc.UserRpcService;
-import cn.vpclub.shm.shcmcc.consumer.service.UserService;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.util.CollectionUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +41,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -109,6 +108,21 @@ public class WeChatUtil {
         return str;
     }
 
+    /**
+     *验证消息的确来自微信服务器
+     * @param timestamp
+     * @param nonce
+     * @param signature
+     * @return
+     */
+    public boolean checkSignature(String timestamp, String nonce, String signature) {
+        try {
+            return SHA1.gen(weChat.getToken(), timestamp, nonce)
+                    .equals(signature);
+        } catch (Exception e) {
+            return false;
+        }
+    }
     public WxJsapiSignature createJsapiSignature(String url) throws WxErrorException {
         long timestamp = System.currentTimeMillis() / 1000;
         String noncestr = RandomUtils.getRandomStr();

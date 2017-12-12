@@ -23,4 +23,6 @@ public class WeChat extends BaseAbstractParameter {
     private String appId;//用户唯一凭证
     @Value("${weChat.secret}")
     private String secret;//用户唯一凭证密钥
+    @Value("${weChat.token}")
+    private String token;//
 }

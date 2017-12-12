@@ -26,6 +26,8 @@ weChat:
   tokenUrl: "https://api.weixin.qq.com/cgi-bin/token"
   userUrl: "https://api.weixin.qq.com/cgi-bin/user/get"
   baseUrl: "https://api.weixin.qq.com/cgi-bin"
+  #服务器配置令牌
+  token: "38bbe18fa309d96a88111093a22eaecc"
 
 spring:
   jackson:

@@ -10,6 +10,7 @@ import cn.vpclub.moses.core.constant.MessageCodeConstant;
 public enum WeChatEnum {
   CODE_0("0", MessageCodeConstant.MESSAGE_COMMON_SUCCESS),//
   SUBSCRIBE("1","关注"),
+  ERROR_REQUEST("request error","非法请求，可能属于伪造的请求！"),
   INSTALL_ORGID("ORG","10000005426349007");
 
   /**

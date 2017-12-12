@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>cn.vpclub.shm</groupId>
-    <artifactId>shcmcc-consumer</artifactId>
+    <artifactId>weChat-consumer</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>shcmcc-consumer</name>
-    <description>shcmcc-consumer </description>
+    <name>weChat-consumer</name>
+    <description>weChat-consumer </description>
     <parent>
         <groupId>cn.vpclub</groupId>
         <artifactId>spring-boot-starters</artifactId>
@@ -48,7 +48,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-
+    <!--第三方微信开发jar-->
         <dependency>
             <groupId>com.github.binarywang</groupId>
             <artifactId>weixin-java-mp</artifactId>
